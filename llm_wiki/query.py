@@ -10,38 +10,12 @@ from llm_wiki import agent, git, llm, log
 from llm_wiki.config import load
 from llm_wiki.indexer import WikiIndexer
 from llm_wiki.ingest import _update_index
+from llm_wiki.prompts import QUERY_INSTRUCTIONS, QUERY_META_PROMPT
 from llm_wiki.tools import get_schemas, set_context, execute
 
 console = Console()
 
-_QUERY_INSTRUCTIONS = """\
-
-## Your Role: Knowledge Base Analyst
-
-You are a knowledge base analyst. The user will ask questions and you'll
-answer by searching and reading the wiki, combined with your own knowledge.
-
-## Rules
-
-1. **Search before answering.** For any factual question about the wiki's
-   domain, call search_wiki at least once. Don't guess at what's in the wiki.
-
-2. **Cite your sources.** When information comes from a wiki page, use
-   inline [[wiki links]]. When it comes from your own knowledge, say so
-   explicitly (e.g., "Based on general knowledge..." or "The wiki doesn't
-   cover this, but...").
-
-3. **Be honest about gaps.** If the wiki doesn't have enough information,
-   say so. Suggest what sources could fill the gap.
-
-4. **Multi-turn awareness.** The user may ask follow-up questions. Use the
-   full conversation context. Don't re-search for information you already
-   retrieved in this session.
-
-5. **Structured answers.** Use markdown formatting — headers, tables,
-   bullet lists — when it makes the answer clearer. Keep answers focused
-   and well-organized.
-"""
+_QUERY_INSTRUCTIONS = QUERY_INSTRUCTIONS
 
 QUERY_TOOLS = ["search_wiki", "read_page", "ask_human", "finish_task"]
 
@@ -195,14 +169,7 @@ def save_answer(
 ):
     """Format answer/conversation as a wiki page and save."""
     # Ask LLM to generate metadata
-    meta_prompt = (
-        "Given the following content, suggest:\n"
-        "1. A short title\n"
-        "2. A wiki path (e.g. wiki/analyses/topic.md or wiki/notes/topic.md)\n"
-        "3. A list of tags\n\n"
-        "Respond with ONLY a JSON object: {\"title\": \"...\", \"path\": \"...\", \"tags\": [...]}\n\n"
-        f"Content:\n{content[:2000]}"
-    )
+    meta_prompt = QUERY_META_PROMPT.format(content=content[:2000])
     try:
         resp = llm.chat(
             [{"role": "user", "content": meta_prompt}],

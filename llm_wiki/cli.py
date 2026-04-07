@@ -8,33 +8,11 @@ from pathlib import Path
 from rich.console import Console
 
 from llm_wiki.config import DEFAULTS
+from llm_wiki.prompts import SCHEMA_TEMPLATE
 
 console = Console()
 
-_SCHEMA_TEMPLATE = """\
-# Wiki Schema
-
-You are an AI knowledge base maintainer. Your workspace is a collection of
-interlinked Markdown files.
-
-## Conventions
-
-- Every wiki page has YAML frontmatter with at least: title, tags, sources, last_updated
-- Use Obsidian-style [[wiki links]] to connect related pages
-- Organize pages by type: concepts/, entities/, sources/, comparisons/
-- When updating a page, preserve existing content and add new information
-- Flag contradictions explicitly rather than silently overwriting
-- Keep pages focused — one concept or entity per page
-
-## Directory Structure
-
-- `wiki/concepts/` — Ideas, frameworks, methodologies
-- `wiki/entities/` — People, companies, organizations, products
-- `wiki/sources/` — One-page summaries of each raw source
-- `wiki/comparisons/` — Side-by-side analyses
-- `wiki/index.md` — Catalog of all pages (auto-maintained)
-- `wiki/log.md` — Operation log (auto-maintained)
-"""
+_SCHEMA_TEMPLATE = SCHEMA_TEMPLATE
 
 
 def _cmd_init(directory: str):

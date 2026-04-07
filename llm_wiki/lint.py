@@ -15,6 +15,14 @@ from rich.table import Table
 from llm_wiki import agent, llm
 from llm_wiki.config import load
 from llm_wiki.indexer import WikiIndexer
+from llm_wiki.prompts import (
+    LINT_EXTRACT_CLAIMS,
+    LINT_DETECT_CONTRADICTIONS,
+    LINT_STALE_WITH_DATE,
+    LINT_STALE_NO_DATE,
+    LINT_DATA_GAPS,
+    LINT_FIX_SYSTEM,
+)
 from llm_wiki.tools import get_schemas, set_context
 
 console = Console()
@@ -491,13 +499,7 @@ def check_contradictions(
         if cached.get("content_hash") == h and cached.get("claims"):
             claims = cached["claims"]
         else:
-            prompt = (
-                "Extract all factual claims from this wiki page as a JSON array. "
-                "Each claim should be a self-contained factual statement. "
-                "Return ONLY a JSON array like: "
-                '[{"claim": "...", "section": "..."}]\n\n'
-                f"Page: {rel}\n\n{text}"
-            )
+            prompt = LINT_EXTRACT_CLAIMS.format(rel=rel, text=text)
             result = _llm_json(prompt, config)
             claims = result if isinstance(result, list) else []
             # Update cache
@@ -540,15 +542,7 @@ def check_contradictions(
             continue
 
         claims_text = "\n".join(all_claims)
-        prompt = (
-            "Review these factual claims from different wiki pages. "
-            "Identify any contradictions — places where two claims cannot both be true. "
-            "Return a JSON array of contradictions. If none found, return []. "
-            "Format: "
-            '[{"claim_a": "...", "page_a": "...", "claim_b": "...", "page_b": "...", '
-            '"explanation": "..."}]\n\n'
-            f"Claims:\n{claims_text}"
-        )
+        prompt = LINT_DETECT_CONTRADICTIONS.format(claims_text=claims_text)
         result = _llm_json(prompt, config)
         if not isinstance(result, list):
             continue
@@ -640,20 +634,13 @@ def check_stale_claims(wiki_root: Path, config: dict) -> list[LintFinding]:
             continue
 
         if source_date:
-            prompt = (
-                f"This wiki page was created from a source dated {source_date}. "
-                f"The wiki now contains sources as recent as {newest}. "
-                "Review the content and assess: is any of this likely outdated? "
-                "What might have changed? Respond in 1-2 sentences.\n\n"
-                f"Page: {rel}\n\n{text[:3000]}"
+            prompt = LINT_STALE_WITH_DATE.format(
+                source_date=source_date, newest=newest,
+                rel=rel, text=text[:3000],
             )
         else:
-            prompt = (
-                f"This wiki page has no source date. "
-                f"The wiki contains sources as recent as {newest}. "
-                "Review the content and assess: does anything seem potentially stale? "
-                "Respond in 1-2 sentences.\n\n"
-                f"Page: {rel}\n\n{text[:3000]}"
+            prompt = LINT_STALE_NO_DATE.format(
+                newest=newest, rel=rel, text=text[:3000],
             )
 
         try:
@@ -722,14 +709,10 @@ def check_data_gaps(wiki_root: Path, config: dict) -> list[LintFinding]:
         except Exception:
             continue
 
-    prompt = (
-        "Review this knowledge base structure and content. "
-        "What important subtopics, related concepts, or knowledge areas are missing? "
-        "Focus on gaps a reader would notice. "
-        "Return a JSON array: "
-        '[{"topic": "...", "reason": "...", "suggested_path": "..."}]\n\n'
-        f"Index:\n{index_content[:2000]}\n\n"
-        f"Pages ({len(sample)} sampled):\n" + "\n".join(summaries)
+    prompt = LINT_DATA_GAPS.format(
+        index_content=index_content[:2000],
+        page_count=len(sample),
+        summaries="\n".join(summaries),
     )
 
     result = _llm_json(prompt, config)
@@ -757,12 +740,7 @@ def check_data_gaps(wiki_root: Path, config: dict) -> list[LintFinding]:
 # Fix mode
 # ---------------------------------------------------------------------------
 
-_FIX_SYSTEM = (
-    "You are a wiki editor fixing a specific issue. "
-    "Read the relevant pages, make the minimal change needed to resolve "
-    "the finding, and use write_page to save your changes. "
-    "When done, call finish_task with a brief summary of what you changed."
-)
+_FIX_SYSTEM = LINT_FIX_SYSTEM
 
 _FIX_TOOLS = ["read_page", "write_page", "search_wiki", "finish_task"]
 

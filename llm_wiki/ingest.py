@@ -11,24 +11,19 @@ from llm_wiki.config import load
 from llm_wiki.indexer import WikiIndexer
 from llm_wiki.tools import get_schemas, set_context
 from llm_wiki import agent
+from llm_wiki.prompts import (
+    DEFAULT_SCHEMA,
+    INGEST_PLAN_SYSTEM,
+    INGEST_PLAN_USER,
+    INGEST_CREATE_SYSTEM,
+    INGEST_CREATE_USER,
+    INGEST_UPDATE_SYSTEM,
+    INGEST_UPDATE_USER,
+)
 
 console = Console()
 
-_DEFAULT_SCHEMA = """\
-# Wiki Schema
-
-You are an AI knowledge base maintainer. Your workspace is a collection of
-interlinked Markdown files.
-
-## Conventions
-
-- Every wiki page has YAML frontmatter with at least: title, tags, sources, last_updated
-- Use Obsidian-style [[wiki links]] to connect related pages
-- Organize pages by type: concepts/, entities/, sources/, comparisons/
-- When updating a page, preserve existing content and add new information
-- Flag contradictions explicitly rather than silently overwriting
-- Keep pages focused — one concept or entity per page
-"""
+_DEFAULT_SCHEMA = DEFAULT_SCHEMA
 
 
 def _read_optional(path: Path) -> str:
@@ -112,30 +107,11 @@ def _run_pipeline(project_dir, source_file, plan_only, plan_file, config, indexe
         schema_path = Path(project_dir) / "schema.md"
         schema_content = _read_optional(schema_path) or _DEFAULT_SCHEMA
 
-        system_prompt = f"""{schema_content}
-
-## Your Task: Plan an Ingest Operation
-
-You are given a new source document to integrate into the wiki. Analyze it and produce a structured plan.
-
-You have read-only tools available: search_wiki and read_page. Use them to understand what already exists in the wiki.
-
-When you are ready, call submit_plan with the plan as a JSON string in the plan_json parameter. The JSON must have this structure:
-{{
-  "source": "<source file path>",
-  "summary": "<one-line summary of the source>",
-  "operations": [
-    {{"action": "create", "path": "wiki/...", "title": "...", "tags": [...], "brief": "...", "sources": [...]}},
-    {{"action": "update", "path": "wiki/...", "reason": "...", "merge_hint": "..."}}
-  ]
-}}
-
-Current wiki index:
-{index_content}
-"""
-        user_prompt = (
-            f"Please analyze this source and create an ingest plan.\n\n"
-            f"Source file: {source_file}\n\n{source_content}"
+        system_prompt = INGEST_PLAN_SYSTEM.format(
+            schema=schema_content, index_content=index_content,
+        )
+        user_prompt = INGEST_PLAN_USER.format(
+            source_file=source_file, source_content=source_content,
         )
         console.print("[bold]Phase 1: Planning...[/bold]")
         raw, _ = agent.run(
@@ -172,34 +148,22 @@ Current wiki index:
         console.print(f"\n[bold cyan]({i}) {action}: {op.get('path', '')}[/bold cyan]")
 
         if action == "create":
-            sys_prompt = f"""{schema_content}
-
-## Your Task: Create a Wiki Page
-
-Create the wiki page described below. Use write_page to save it. Include proper YAML frontmatter.
-When done, call finish_task with a brief summary."""
-            usr_prompt = (
-                f"Create this page:\n"
-                f"- Path: {op['path']}\n"
-                f"- Title: {op.get('title', '')}\n"
-                f"- Tags: {op.get('tags', [])}\n"
-                f"- Brief: {op.get('brief', '')}\n"
-                f"- Sources: {op.get('sources', [])}\n\n"
-                f"Source material:\n{source_content}"
+            sys_prompt = INGEST_CREATE_SYSTEM.format(schema=schema_content)
+            usr_prompt = INGEST_CREATE_USER.format(
+                path=op['path'],
+                title=op.get('title', ''),
+                tags=op.get('tags', []),
+                brief=op.get('brief', ''),
+                sources=op.get('sources', []),
+                source_content=source_content,
             )
         elif action == "update":
-            sys_prompt = f"""{schema_content}
-
-## Your Task: Update an Existing Wiki Page
-
-Read the existing page, then update it with new information. Use write_page to save the updated content.
-When done, call finish_task with a brief summary."""
-            usr_prompt = (
-                f"Update this page:\n"
-                f"- Path: {op['path']}\n"
-                f"- Reason: {op.get('reason', '')}\n"
-                f"- Merge hint: {op.get('merge_hint', '')}\n\n"
-                f"Source material:\n{source_content}"
+            sys_prompt = INGEST_UPDATE_SYSTEM.format(schema=schema_content)
+            usr_prompt = INGEST_UPDATE_USER.format(
+                path=op['path'],
+                reason=op.get('reason', ''),
+                merge_hint=op.get('merge_hint', ''),
+                source_content=source_content,
             )
         else:
             console.print(f"[yellow]Unknown action: {action}, skipping[/yellow]")
