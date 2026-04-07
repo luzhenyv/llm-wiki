@@ -35,6 +35,42 @@ def _read_optional(path: Path) -> str:
     return path.read_text(encoding="utf-8") if path.exists() else ""
 
 
+def _update_index(project_dir: str) -> None:
+    """Rebuild wiki/index.md from the wiki directory tree."""
+    wiki = Path(project_dir) / "wiki"
+    pages: dict[str, list[tuple[str, str]]] = {}
+
+    for md in sorted(wiki.rglob("*.md")):
+        rel = md.relative_to(wiki)
+        if rel.name in ("index.md", "log.md"):
+            continue
+        section = rel.parent.name or "Other"
+        title = rel.stem.replace("-", " ").replace("_", " ").title()
+        # Try extracting title from frontmatter
+        try:
+            text = md.read_text(encoding="utf-8")
+            for line in text.splitlines():
+                if line.startswith("title:"):
+                    title = line.split(":", 1)[1].strip().strip("\"'")
+                    break
+        except Exception:
+            pass
+        pages.setdefault(section, []).append((rel.stem, title))
+
+    lines = ["# Wiki Index", ""]
+    if not pages:
+        lines.append("*No pages yet.*")
+    else:
+        for section, entries in sorted(pages.items()):
+            lines.append(f"## {section.title()}")
+            for stem, title in entries:
+                lines.append(f"- [[{stem}]] — {title}")
+            lines.append("")
+
+    lines.append("")
+    (wiki / "index.md").write_text("\n".join(lines), encoding="utf-8")
+
+
 def _save_plan(project_dir: str, source_file: str, plan: dict) -> Path:
     plans_dir = Path(project_dir) / ".llm-wiki" / "plans"
     plans_dir.mkdir(parents=True, exist_ok=True)
@@ -172,6 +208,8 @@ When done, call finish_task with a brief summary."""
     operations = plan.get("operations", [])
     n_created = sum(1 for op in operations if op["action"] == "create")
     n_updated = sum(1 for op in operations if op["action"] == "update")
+
+    _update_index(project_dir)
 
     details = {
         "source": plan.get("source", source_file),
