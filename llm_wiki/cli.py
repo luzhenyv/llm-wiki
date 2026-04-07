@@ -64,10 +64,24 @@ def _cmd_init(directory: str):
     console.print(f"[bold green]✅ Wiki project initialized in {root}[/bold green]")
 
 
+def _find_project_dir(start: str) -> str:
+    """Walk up from *start* looking for a directory that contains config.json."""
+    current = Path(start).resolve()
+    if current.is_file():
+        current = current.parent
+    for parent in [current, *current.parents]:
+        if (parent / "config.json").exists():
+            return str(parent)
+    return "."
+
+
 def _cmd_ingest(args):
     from llm_wiki.ingest import run
+    project_dir = args.project_dir
+    if project_dir == ".":
+        project_dir = _find_project_dir(args.source)
     run(
-        project_dir=args.project_dir,
+        project_dir=project_dir,
         source_file=args.source,
         plan_only=args.plan_only,
         plan_file=args.execute_plan,
