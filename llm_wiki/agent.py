@@ -83,6 +83,10 @@ def run(system_prompt: str, user_prompt: str, tool_schemas: list[dict], config: 
             {"role": "user", "content": user_prompt},
         ]
 
+    last_call_sig: str | None = None
+    repeat_count = 0
+    MAX_REPEATS = 3
+
     for _ in range(MAX_ITERATIONS):
         try:
             chunks = llm.chat_stream(messages, tools=tool_schemas, config=config)
@@ -105,6 +109,17 @@ def run(system_prompt: str, user_prompt: str, tool_schemas: list[dict], config: 
                 args = {}
 
             console.print(f"[dim]⚡ {name}({json.dumps(args, ensure_ascii=False)[:80]})[/dim]")
+
+            # Detect repeated identical tool calls
+            call_sig = f"{name}:{json.dumps(args, sort_keys=True)}"
+            if call_sig == last_call_sig:
+                repeat_count += 1
+                if repeat_count >= MAX_REPEATS:
+                    console.print(f"[bold yellow]⚠ Tool {name} called {MAX_REPEATS}+ times with same args, stopping.[/bold yellow]")
+                    return (choice.get("content", "") or ""), messages
+            else:
+                repeat_count = 1
+                last_call_sig = call_sig
 
             if name == "ask_human":
                 console.print(f"\n[bold yellow]❓ {args.get('question')}[/bold yellow]")

@@ -1,6 +1,7 @@
 """Decorator-based tool registry for LLM function calling."""
 
 import inspect
+import types
 import typing
 from pathlib import Path
 
@@ -40,7 +41,7 @@ def _infer_params(func) -> dict:
         hint = hints.get(name, str)
         # Unwrap Optional (Union[X, None])
         origin = typing.get_origin(hint)
-        if origin is typing.Union:
+        if origin is typing.Union or isinstance(hint, types.UnionType):
             args = [a for a in typing.get_args(hint) if a is not type(None)]
             hint = args[0] if args else str
         json_type = _TYPE_MAP.get(hint, "string")

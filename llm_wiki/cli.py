@@ -110,6 +110,19 @@ def _cmd_query(args):
         query_repl(project_dir=".", no_save=args.no_save, no_log=args.no_log)
 
 
+def _cmd_lint(args):
+    from llm_wiki.lint import run_lint
+
+    project_dir = _find_project_dir(".")
+    exit_code = run_lint(
+        project_dir=project_dir,
+        no_fix=args.no_fix,
+        no_report=args.no_report,
+        structural_only=args.structural_only,
+    )
+    raise SystemExit(exit_code)
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="llm-wiki",
@@ -134,6 +147,11 @@ def main():
     query_p.add_argument("--no-save", action="store_true", help="Disable /save command in REPL")
     query_p.add_argument("--no-log", action="store_true", help="Don't log queries to wiki/log.md")
 
+    lint_p = sub.add_parser("lint", help="Health-check the wiki for issues")
+    lint_p.add_argument("--no-fix", action="store_true", help="Skip interactive fix mode")
+    lint_p.add_argument("--no-report", action="store_true", help="Terminal output only, no report file")
+    lint_p.add_argument("--structural-only", action="store_true", help="Skip LLM-powered semantic checks")
+
     args = parser.parse_args()
 
     if args.command == "init":
@@ -144,5 +162,7 @@ def main():
         _cmd_reindex(args.directory)
     elif args.command == "query":
         _cmd_query(args)
+    elif args.command == "lint":
+        _cmd_lint(args)
     else:
         parser.print_help()
