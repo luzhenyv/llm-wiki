@@ -12,5 +12,12 @@ dependencies = [
     "rich",
 ]
 
+[tool.setuptools.package-dir]
+"" = "."
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["llm_wiki*"]
+
 [project.scripts]
 llm-wiki = "llm_wiki.cli:main"
