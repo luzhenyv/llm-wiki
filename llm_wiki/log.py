@@ -23,4 +23,4 @@ def append(project_dir: str, operation: str, summary: str, details: dict) -> Non
     log_path = Path(project_dir) / "wiki" / "log.md"
     log_path.parent.mkdir(parents=True, exist_ok=True)
     with open(log_path, "a") as f:
-        f.write("\n".join(lines))
+        f.write("\n".join(lines) + "\n")
