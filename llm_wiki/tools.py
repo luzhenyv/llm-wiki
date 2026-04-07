@@ -114,7 +114,10 @@ def search_wiki(query: str) -> str:
 @tool("read_page", "Read the full content of an existing wiki page.")
 def read_page(filepath: str) -> str:
     """filepath: Path to the markdown file, e.g. 'wiki/concepts/LLM.md'"""
-    target = Path(_context["project_dir"]) / filepath
+    target = (Path(_context["project_dir"]) / filepath).resolve()
+    wiki_root = (Path(_context["project_dir"]) / "wiki").resolve()
+    if not str(target).startswith(str(wiki_root) + "/") and target != wiki_root:
+        return f"Error: {filepath} is outside wiki directory."
     if not target.exists():
         return f"Error: {filepath} does not exist."
     return target.read_text(encoding="utf-8")
@@ -146,7 +149,10 @@ def write_page(filepath: str, content: str, frontmatter: dict | None = None) -> 
     normalized = Path(filepath).as_posix()
     if not normalized.startswith("wiki/"):
         return "Error: filepath must be under wiki/"
-    target = Path(_context["project_dir"]) / normalized
+    target = (Path(_context["project_dir"]) / normalized).resolve()
+    wiki_root = (Path(_context["project_dir"]) / "wiki").resolve()
+    if not str(target).startswith(str(wiki_root) + "/"):
+        return "Error: filepath must be under wiki/"
     target.parent.mkdir(parents=True, exist_ok=True)
     body = content
     if frontmatter:

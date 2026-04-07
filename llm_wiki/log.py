@@ -15,7 +15,9 @@ def append(project_dir: str, operation: str, summary: str, details: dict) -> Non
             continue
         label = key.capitalize()
         if isinstance(value, list):
-            value = ", ".join(value)
+            value = ", ".join(str(v).replace("\n", " ") for v in value)
+        else:
+            value = str(value).replace("\n", " ")
         lines.append(f"- **{label}:** {value}")
 
     lines.append("")

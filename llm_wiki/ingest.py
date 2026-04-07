@@ -91,6 +91,13 @@ def run(project_dir: str, source_file: str, plan_only: bool = False, plan_file: 
     set_context(project_dir, indexer, config)
 
     wiki_dir = str(Path(project_dir) / "wiki")
+    try:
+        _run_pipeline(project_dir, source_file, plan_only, plan_file, config, indexer, wiki_dir)
+    finally:
+        indexer.close()
+
+
+def _run_pipeline(project_dir, source_file, plan_only, plan_file, config, indexer, wiki_dir):
     if Path(wiki_dir).exists():
         indexer.index_directory(wiki_dir)
 
@@ -142,7 +149,6 @@ Current wiki index:
         except (json.JSONDecodeError, TypeError):
             console.print("[bold red]Failed to parse plan from agent output.[/bold red]")
             console.print(raw)
-            indexer.close()
             return
 
         saved = _save_plan(project_dir, source_file, plan)
@@ -152,7 +158,6 @@ Current wiki index:
 
         if plan_only:
             console.print("[bold]Plan-only mode — stopping here.[/bold]")
-            indexer.close()
             return
 
     # --- Execute phase ---
@@ -226,4 +231,3 @@ When done, call finish_task with a brief summary."""
     )
 
     console.print(f"\n[bold green]Done! Created {n_created}, updated {n_updated} pages.[/bold green]")
-    indexer.close()

@@ -175,7 +175,12 @@ class WikiIndexer:
         scored = []
         for row in rows:
             n = len(row["embedding"]) // 4
-            vec = list(struct.unpack(f"{n}f", row["embedding"]))
+            if len(row["embedding"]) != n * 4 or n == 0:
+                continue
+            try:
+                vec = list(struct.unpack(f"{n}f", row["embedding"]))
+            except struct.error:
+                continue
             sim = _cosine(q_vec, vec)
             scored.append({
                 "filepath": row["filepath"],
