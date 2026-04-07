@@ -1,8 +1,10 @@
-"""Generic ReAct tool-calling loop."""
+"""Generic ReAct tool-calling loop with streaming output."""
 
 import json
 
 from rich.console import Console
+from rich.live import Live
+from rich.text import Text
 
 from llm_wiki import llm
 from llm_wiki.tools import execute
@@ -12,8 +14,56 @@ console = Console()
 MAX_ITERATIONS = 20
 
 
+def _collect_stream(chunks) -> dict:
+    """Consume SSE chunks, print text tokens live, and return an assembled message."""
+    content_parts: list[str] = []
+    tool_calls_map: dict[int, dict] = {}
+    role = "assistant"
+
+    text_buf = Text()
+    with Live(text_buf, console=console, refresh_per_second=15, transient=True) as live:
+        for chunk in chunks:
+            delta = chunk.get("choices", [{}])[0].get("delta", {})
+            if "role" in delta:
+                role = delta["role"]
+
+            # Accumulate text content
+            if delta.get("content"):
+                token = delta["content"]
+                content_parts.append(token)
+                text_buf.append(token)
+                live.update(text_buf)
+
+            # Accumulate tool call fragments
+            for tc_delta in delta.get("tool_calls", []):
+                idx = tc_delta["index"]
+                if idx not in tool_calls_map:
+                    tool_calls_map[idx] = {
+                        "id": tc_delta.get("id", ""),
+                        "type": "function",
+                        "function": {"name": "", "arguments": ""},
+                    }
+                entry = tool_calls_map[idx]
+                if tc_delta.get("id"):
+                    entry["id"] = tc_delta["id"]
+                fn = tc_delta.get("function", {})
+                if fn.get("name"):
+                    entry["function"]["name"] += fn["name"]
+                if fn.get("arguments"):
+                    entry["function"]["arguments"] += fn["arguments"]
+
+    content = "".join(content_parts)
+    if content:
+        console.print(content)
+
+    message: dict = {"role": role, "content": content or None}
+    if tool_calls_map:
+        message["tool_calls"] = [tool_calls_map[i] for i in sorted(tool_calls_map)]
+    return message
+
+
 def run(system_prompt: str, user_prompt: str, tool_schemas: list[dict], config: dict) -> str:
-    """Run a ReAct tool-calling loop. Returns the final text or finish_task summary."""
+    """Run a ReAct tool-calling loop with streaming. Returns the final text or finish_task summary."""
     messages = [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_prompt},
@@ -21,17 +71,17 @@ def run(system_prompt: str, user_prompt: str, tool_schemas: list[dict], config: 
 
     for _ in range(MAX_ITERATIONS):
         try:
-            response = llm.chat(messages, tools=tool_schemas, config=config)
+            chunks = llm.chat_stream(messages, tools=tool_schemas, config=config)
+            choice = _collect_stream(chunks)
         except Exception as e:
             console.print(f"[bold red]LLM error: {e}[/bold red]")
             break
 
-        choice = response["choices"][0]["message"]
         messages.append(choice)
 
         tool_calls = choice.get("tool_calls")
         if not tool_calls:
-            return choice.get("content", "")
+            return choice.get("content", "") or ""
 
         for tc in tool_calls:
             name = tc["function"]["name"]
