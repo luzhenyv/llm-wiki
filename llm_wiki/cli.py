@@ -67,7 +67,7 @@ def _cmd_init(directory: str):
 def _cmd_ingest(args):
     from llm_wiki.ingest import run
     run(
-        project_dir=".",
+        project_dir=args.project_dir,
         source_file=args.source,
         plan_only=args.plan_only,
         plan_file=args.execute_plan,
@@ -99,6 +99,7 @@ def main():
 
     ingest_p = sub.add_parser("ingest", help="Ingest a source document into the wiki")
     ingest_p.add_argument("source", help="Path to the source file")
+    ingest_p.add_argument("--project-dir", default=".", help="Project directory (default: current)")
     ingest_p.add_argument("--plan-only", action="store_true", help="Generate plan without executing")
     ingest_p.add_argument("--execute-plan", metavar="PLAN", help="Execute a previously saved plan")
 

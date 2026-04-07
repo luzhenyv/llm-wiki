@@ -6,7 +6,7 @@ from pathlib import Path
 DEFAULTS = {
     "llm": {
         "base_url": "http://localhost:11434/v1",
-        "model": "qwen3:latest",
+        "model": "qwen3.5:latest",
         "api_key": "ollama",
         "temperature": 0.1,
         "timeout": 120,
