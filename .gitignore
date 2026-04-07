@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+*.egg-info/
+dist/
+build/
+.llm-wiki/
+.DS_Store
+*.db
+venv/
+.venv/
