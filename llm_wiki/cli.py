@@ -87,6 +87,15 @@ def _cmd_reindex(directory: str):
     indexer.close()
 
 
+def _cmd_query(args):
+    from llm_wiki.query import query_single, query_repl
+
+    if args.question:
+        query_single(args.question, project_dir=".", no_log=args.no_log)
+    else:
+        query_repl(project_dir=".", no_save=args.no_save, no_log=args.no_log)
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="llm-wiki",
@@ -106,6 +115,11 @@ def main():
     reindex_p = sub.add_parser("reindex", help="Rebuild the search index from wiki files")
     reindex_p.add_argument("directory", nargs="?", default=".", help="Project directory")
 
+    query_p = sub.add_parser("query", help="Ask questions against the wiki")
+    query_p.add_argument("question", nargs="?", default=None, help="Question (omit for REPL mode)")
+    query_p.add_argument("--no-save", action="store_true", help="Disable /save command in REPL")
+    query_p.add_argument("--no-log", action="store_true", help="Don't log queries to wiki/log.md")
+
     args = parser.parse_args()
 
     if args.command == "init":
@@ -114,5 +128,7 @@ def main():
         _cmd_ingest(args)
     elif args.command == "reindex":
         _cmd_reindex(args.directory)
+    elif args.command == "query":
+        _cmd_query(args)
     else:
         parser.print_help()

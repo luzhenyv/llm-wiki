@@ -120,7 +120,7 @@ You are given a new source document to integrate into the wiki. Analyze it and p
 
 You have read-only tools available: search_wiki and read_page. Use them to understand what already exists in the wiki.
 
-When you are ready, call finish_task with a JSON string as the summary. The JSON must have this structure:
+When you are ready, call submit_plan with the plan as a JSON string in the plan_json parameter. The JSON must have this structure:
 {{
   "source": "<source file path>",
   "summary": "<one-line summary of the source>",
@@ -138,9 +138,9 @@ Current wiki index:
             f"Source file: {source_file}\n\n{source_content}"
         )
         console.print("[bold]Phase 1: Planning...[/bold]")
-        raw = agent.run(
+        raw, _ = agent.run(
             system_prompt, user_prompt,
-            get_schemas(["search_wiki", "read_page", "finish_task"]),
+            get_schemas(["search_wiki", "read_page", "submit_plan"]),
             config,
         )
 
@@ -205,7 +205,7 @@ When done, call finish_task with a brief summary."""
             console.print(f"[yellow]Unknown action: {action}, skipping[/yellow]")
             continue
 
-        agent.run(sys_prompt, usr_prompt, exec_tools, config)
+        agent.run(sys_prompt, usr_prompt, exec_tools, config)  # discard history
 
     # --- Post-processing ---
     indexer.index_directory(wiki_dir)

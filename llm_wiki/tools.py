@@ -172,3 +172,9 @@ def ask_human(question: str) -> str:
 def finish_task(summary: str) -> str:
     """summary: Brief summary of what was accomplished"""
     return "TASK_FINISHED"
+
+
+@tool("submit_plan", "Submit a structured ingest plan as JSON. Call this when your plan is ready.")
+def submit_plan(plan_json: str) -> str:
+    """plan_json: The full plan as a JSON string with keys: source, summary, operations"""
+    return "PLAN_SUBMITTED"

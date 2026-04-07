@@ -62,12 +62,26 @@ def _collect_stream(chunks) -> dict:
     return message
 
 
-def run(system_prompt: str, user_prompt: str, tool_schemas: list[dict], config: dict) -> str:
-    """Run a ReAct tool-calling loop with streaming. Returns the final text or finish_task summary."""
-    messages = [
-        {"role": "system", "content": system_prompt},
-        {"role": "user", "content": user_prompt},
-    ]
+def run(system_prompt: str, user_prompt: str, tool_schemas: list[dict], config: dict, history: list | None = None) -> tuple[str, list]:
+    """Run a ReAct tool-calling loop with streaming.
+
+    Args:
+        history: Optional prior messages for multi-turn. If given, system_prompt
+                 is only used when history is empty (first turn).
+
+    Returns:
+        (answer_text, updated_messages) for multi-turn chaining.
+    """
+    if history is not None:
+        messages = list(history)
+        if not messages:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": user_prompt})
+    else:
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
 
     for _ in range(MAX_ITERATIONS):
         try:
@@ -81,7 +95,7 @@ def run(system_prompt: str, user_prompt: str, tool_schemas: list[dict], config: 
 
         tool_calls = choice.get("tool_calls")
         if not tool_calls:
-            return choice.get("content", "") or ""
+            return choice.get("content", "") or "", messages
 
         for tc in tool_calls:
             name = tc["function"]["name"]
@@ -98,11 +112,16 @@ def run(system_prompt: str, user_prompt: str, tool_schemas: list[dict], config: 
                 result = f"User replied: {reply}"
             elif name == "finish_task":
                 console.print(f"\n[bold green]✅ {args.get('summary', 'Done')}[/bold green]")
-                return args.get("summary", "Done")
+                messages.append({"role": "tool", "tool_call_id": tc["id"], "content": args.get("summary", "Done")})
+                return args.get("summary", "Done"), messages
+            elif name == "submit_plan":
+                console.print(f"\n[bold green]✅ Plan submitted[/bold green]")
+                messages.append({"role": "tool", "tool_call_id": tc["id"], "content": args.get("plan_json", "{}")})
+                return args.get("plan_json", "{}"), messages
             else:
                 result = execute(name, args)
 
             messages.append({"role": "tool", "tool_call_id": tc["id"], "content": str(result)})
 
     console.print("[bold yellow]⚠ Agent reached iteration limit[/bold yellow]")
-    return ""
+    return "", messages
