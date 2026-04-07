@@ -8,7 +8,9 @@ version = "0.1.0"
 description = "LLM-powered personal knowledge base tool"
 license = "MIT"
 requires-python = ">=3.10"
-dependencies = ["rich"]
+dependencies = [
+    "rich",
+]
 
 [project.scripts]
 llm-wiki = "llm_wiki.cli:main"
